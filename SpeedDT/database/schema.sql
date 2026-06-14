@@ -135,6 +135,8 @@ CREATE INDEX idx_feedback_device
 CREATE INDEX idx_feedback_ratings
     ON feedback (overall_rating, speed_rating, delay_rating, reliability_rating);
 
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 COMMENT ON TABLE feedback IS 'User-submitted QoE ratings and comments';
 COMMENT ON COLUMN feedback.metric_id IS 'Optional link to a specific speed test. NULL if feedback is standalone';
 
