@@ -1,0 +1,60 @@
+### Register a new device
+POST http://localhost:5050/api/devices
+Content-Type: application/json
+
+{
+  "device_model": "Samsung S22",
+  "os": "Android 15",
+  "app_version": "1.0",
+  "consent_given": true
+}
+
+### Ingest a network metric
+POST http://localhost:5050/api/metrics
+Content-Type: application/json
+
+{
+  "anonymous_id": "1d629c65-4f30-4680-b983-34afeaf40d64",
+  "network_type": "4G LTE",
+  "operator_name": "MTN",
+  "signal_strength_dbm": -75,
+  "download_mbps": 34.5,
+  "upload_mbps": 12.1,
+  "latency_ms": 23.8,
+  "jitter_ms": 4.2,
+  "packet_loss_pct": 0.0
+}
+
+### Track a location
+POST http://localhost:5050/api/locations
+Content-Type: application/json
+
+{
+  "anonymous_id": "1d629c65-4f30-4680-b983-34afeaf40d64",
+  "latitude": 5.123456,
+  "longitude": 9.123456,
+  "location_name": "Buea Highway"
+}
+
+### Submit feedback
+POST http://localhost:5050/api/feedback
+Content-Type: application/json
+
+{
+  "anonymous_id": "<replace-with-device-id>",
+  "metric_id": null,
+  "overall_rating": 4,
+  "speed_rating": 4,
+  "delay_rating": 3,
+  "reliability_rating": 5,
+  "comment": "Good coverage and stable speed"
+}
+
+### Get average speed for a device
+GET http://localhost:5050/api/analytics/average-speed/1d629c65-4f30-4680-b983-34afeaf40d64
+
+### Get average QoE for a device
+GET http://localhost:5050/api/analytics/average-qoe/1d629c65-4f30-4680-b983-34afeaf40d64
+
+### Get latest metric for a device
+GET http://localhost:5050/api/analytics/latest-metric/1d629c65-4f30-4680-b983-34afeaf40d64
