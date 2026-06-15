@@ -1,3 +1,8 @@
 # dependencies
 node_modules/
 .env
+
+# exports (generated files)
+exports/*.csv
+exports/*.json
+!exports/.gitkeep

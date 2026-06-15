@@ -58,3 +58,39 @@ GET http://localhost:5050/api/analytics/average-qoe/1d629c65-4f30-4680-b983-34af
 
 ### Get latest metric for a device
 GET http://localhost:5050/api/analytics/latest-metric/1d629c65-4f30-4680-b983-34afeaf40d64
+
+### ─────────────────────────────────────────────────────────────────
+### OPERATOR DATA EXPORT ENDPOINTS
+### Requires Authorization header with valid operator API key
+### ─────────────────────────────────────────────────────────────────
+
+### 1. List all configured operators
+GET http://localhost:5000/api/export/operators
+Authorization: Bearer mtn_api_key_demo_abc123
+
+### 2. Export single device as JSON (MTN operator)
+GET http://localhost:5000/api/export/device/1d629c65-4f30-4680-b983-34afeaf40d64?format=json
+Authorization: Bearer mtn_api_key_demo_abc123
+
+### 3. Export single device as CSV (MTN operator)
+GET http://localhost:5050/api/export/device/1d629c65-4f30-4680-b983-34afeaf40d64?format=csv
+Authorization: Bearer mtn_api_key_demo_abc123
+
+### 4. Export ALL devices for MTN as JSON
+GET http://localhost:5050/api/export/all?format=json
+Authorization: Bearer mtn_api_key_demo_abc123
+
+### 5. Export ALL devices for MTN as CSV (bulk download)
+GET http://localhost:5050/api/export/all?format=csv
+Authorization: Bearer mtn_api_key_demo_abc123
+
+### 6. Orange operator tries to access MTN device — should return 404 (no data)
+GET http://localhost:5050/api/export/device/1d629c65-4f30-4680-b983-34afeaf40d64?format=json
+Authorization: Bearer orange_api_key_demo_def456
+
+### 7. Unauthorized request (no API key) — should return 401
+GET http://localhost:5050/api/export/device/1d629c65-4f30-4680-b983-34afeaf40d64?format=json
+
+### 8. Invalid API key — should return 403
+GET http://localhost:5050/api/export/all?format=json
+Authorization: Bearer fake_invalid_key_xxx
