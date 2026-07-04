@@ -1,24 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 
+import { getDeviceId } from '@/services/storage';
+import { getNetworkType, getOperatorName, getSignalStrength } from '@/services/device-info';
+import { runFullSpeedTest } from '@/services/speed-test';
+import { submitMetric } from '@/services/api';
+
 type TestStatus = 'idle' | 'testing' | 'complete';
 
-const MOCK_RESULTS = {
-  download: 150.5,
-  upload: 45.2,
-  ping: 22,
-  jitter: 4,
-};
-
-const CONNECTION = {
-  network: { name: 'Starlink Network', type: 'Wi-Fi Connection' },
-  server: { name: 'SpeeDT Core Server', location: 'Frankfurt, DE' },
-};
-
-const TEST_DURATION_MS = 2500;
+function parseMetricValue(value: any): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 function formatMetric(value: number | null, status: TestStatus, suffix = '') {
   if (status !== 'complete' || value === null) {
@@ -72,35 +69,81 @@ function GoButton({ status, onPress }: { status: TestStatus; onPress: () => void
 export function TestScreen() {
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<TestStatus>('idle');
-  const [results, setResults] = useState<typeof MOCK_RESULTS | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [results, setResults] = useState<{ download: number; upload: number; ping: number; jitter: number } | null>(null);
+  const [networkType, setNetworkType] = useState('Unknown');
+  const [operatorName, setOperatorName] = useState<string | null>(null);
+  const [signalStrength, setSignalStrength] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+    const loadConnectionInfo = async () => {
+      const type = await getNetworkType();
+      const carrier = await getOperatorName();
+      const signal = await getSignalStrength();
+      setNetworkType(type);
+      setOperatorName(carrier);
+      setSignalStrength(signal);
     };
+
+    loadConnectionInfo();
   }, []);
 
-  const startTest = () => {
+  const startTest = async () => {
     if (status === 'testing') {
       return;
     }
 
     setStatus('testing');
     setResults(null);
+    setError(null);
+    setLoading(true);
 
-    timeoutRef.current = setTimeout(() => {
-      setResults(MOCK_RESULTS);
+    try {
+      const deviceId = await getDeviceId();
+      if (!deviceId) {
+        throw new Error('Device not registered');
+      }
+
+      const speedResult = await runFullSpeedTest();
+      const signal = await getSignalStrength();
+      const operator = await getOperatorName();
+      const network = await getNetworkType();
+
+      await submitMetric({
+        anonymous_id: deviceId,
+        network_type: network,
+        operator_name: operator,
+        signal_strength_dbm: signal,
+        download_mbps: speedResult.download_mbps,
+        upload_mbps: speedResult.upload_mbps,
+        latency_ms: speedResult.latency_ms,
+        jitter_ms: speedResult.jitter_ms,
+        packet_loss_pct: speedResult.packet_loss_pct,
+      });
+
+      setResults({
+        download: speedResult.download_mbps,
+        upload: speedResult.upload_mbps,
+        ping: speedResult.latency_ms,
+        jitter: speedResult.jitter_ms,
+      });
+      setNetworkType(network);
+      setOperatorName(operator);
+      setSignalStrength(signal);
       setStatus('complete');
-    }, TEST_DURATION_MS);
+    } catch (err) {
+      setError('Speed test failed. Please try again.');
+      setStatus('idle');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const downloadValue = status === 'complete' && results ? results.download.toFixed(1) : '--';
-  const uploadValue = status === 'complete' && results ? results.upload.toFixed(1) : '--';
-  const pingValue = formatMetric(results?.ping ?? null, status, ' ms');
-  const jitterValue = formatMetric(results?.jitter ?? null, status, ' ms');
+  const downloadValue = status === 'complete' && results ? parseMetricValue(results.download)?.toFixed(1) ?? '--' : '--';
+  const uploadValue = status === 'complete' && results ? parseMetricValue(results.upload)?.toFixed(1) ?? '--' : '--';
+  const pingValue = formatMetric(parseMetricValue(results?.ping ?? null), status, ' ms');
+  const jitterValue = formatMetric(parseMetricValue(results?.jitter ?? null), status, ' ms');
 
   return (
     <View className="flex-1 bg-[#EEF4FB]" style={{ flex: 1 }}>
@@ -120,6 +163,18 @@ export function TestScreen() {
         </View>
 
         <GoButton status={status} onPress={startTest} />
+
+        {error ? (
+          <View className="mb-4 rounded-3xl bg-red-50 p-4">
+            <Text className="text-sm font-medium text-red-700">{error}</Text>
+          </View>
+        ) : null}
+
+        {loading ? (
+          <View className="mb-4 items-center justify-center">
+            <ActivityIndicator size="large" color="#3CB4A0" />
+          </View>
+        ) : null}
 
         <View className="mb-3 flex-row gap-3">
           <View className="flex-1 rounded-3xl bg-brand-card p-4">
@@ -164,8 +219,8 @@ export function TestScreen() {
               <Ionicons name="wifi" size={18} color="#1A2E4A" />
             </View>
             <View>
-              <Text className="text-sm font-bold text-brand-navy">{CONNECTION.network.name}</Text>
-              <Text className="text-xs text-brand-subtle">{CONNECTION.network.type}</Text>
+              <Text className="text-sm font-bold text-brand-navy">{operatorName ?? 'Unknown Operator'}</Text>
+              <Text className="text-xs text-brand-subtle">{networkType}</Text>
             </View>
           </View>
 
@@ -173,13 +228,14 @@ export function TestScreen() {
 
           <Pressable
             accessibilityRole="button"
+            onPress={() => Alert.alert('Server', 'SpeeDT Core Server • Frankfurt, DE')}
             className="flex-row items-center px-4 py-4 active:opacity-70">
             <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-light-blue">
               <Ionicons name="server-outline" size={18} color="#1A2E4A" />
             </View>
             <View className="flex-1">
-              <Text className="text-sm font-bold text-brand-navy">{CONNECTION.server.name}</Text>
-              <Text className="text-xs text-brand-subtle">{CONNECTION.server.location}</Text>
+              <Text className="text-sm font-bold text-brand-navy">SpeeDT Core Server</Text>
+              <Text className="text-xs text-brand-subtle">Frankfurt, DE</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#1A2E4A" />
           </Pressable>

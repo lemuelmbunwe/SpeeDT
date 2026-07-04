@@ -1,42 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 
-const MOCK = {
-  download: 142,
-  upload: 48.2,
-  ping: 12,
-  gaugeProgress: 0.75,
-  network: {
-    status: 'Connected',
-    type: '5G Ultra Wideband',
-  },
-  reliability: 98,
-  recentTests: [
-    {
-      id: '1',
-      location: 'Downtown Core',
-      time: 'Today, 09:41 AM',
-      speed: 138,
-      icon: 'location' as const,
-    },
-    {
-      id: '2',
-      location: 'Business District',
-      time: 'Yesterday, 06:15 PM',
-      speed: 112,
-      icon: 'business' as const,
-    },
-    {
-      id: '3',
-      location: 'Transit Hub',
-      time: 'Oct 24, 11:20 AM',
-      speed: 95,
-      icon: 'train' as const,
-    },
-  ],
-};
+import { getDeviceId } from '@/services/storage';
+import { getLatestMetric, getAverageSpeed, getHistory, getLocationHistory } from '@/services/api';
+import { routes } from '@/navigation/routes';
 
 const GAUGE_SIZE = 188;
 const GAUGE_RADIUS = 74;
@@ -85,13 +56,101 @@ function DownloadGauge({ value, progress }: { value: number; progress: number })
   );
 }
 
+function parseMetricValue(value: any): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatLocationLabel(value: any): string {
+  const label = String(value ?? '').trim();
+  if (!label) return 'Unknown Location';
+  const normalized = label.toLowerCase();
+  if (normalized.includes('mobile telephone network') || normalized.includes('mtn') || normalized.includes('cameroon')) {
+    return 'Mobile Network';
+  }
+  return label;
+}
+
 export function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [download, setDownload] = useState<number>(0);
+  const [upload, setUpload] = useState<number>(0);
+  const [ping, setPing] = useState<number>(0);
+  const [signalType, setSignalType] = useState<string>('Unknown');
+  const [reliability, setReliability] = useState<number>(0);
+  const [recentTests, setRecentTests] = useState<any[]>([]);
+  const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
+  const [locationLabel, setLocationLabel] = useState<string>('Unknown Location');
+
+  const loadData = async () => {
+    try {
+      const deviceId = await getDeviceId();
+      if (!deviceId) {
+        router.replace(routes.consent);
+        return;
+      }
+
+      const latestResponse = await getLatestMetric(deviceId);
+      const avgResponse = await getAverageSpeed(deviceId);
+      const historyResponse = await getHistory(deviceId, 1, 3);
+      const locationResponse = await getLocationHistory(deviceId);
+
+      const latest = latestResponse.data;
+      const avg = avgResponse.data;
+      const latestLocation = (locationResponse.data || []).find((item: any) => item.location_name)?.location_name;
+
+      setDownload(parseMetricValue(latest.download_mbps ?? 0));
+      setUpload(parseMetricValue(latest.upload_mbps ?? 0));
+      setPing(parseMetricValue(latest.latency_ms ?? 0));
+      setSignalType(latest.network_type ?? 'Unknown');
+      setReliability(Math.min(Math.round((parseMetricValue(avg.average_download_mbps ?? 0)) + 5), 100));
+      setLocationLabel(formatLocationLabel(latestLocation || latest.operator_name));
+
+      const tests = (historyResponse.data || []).map((item: any) => ({
+        id: String(item.metric_id),
+        location: formatLocationLabel(item.operator_name || latestLocation),
+        time: new Date(item.recorded_at).toLocaleString(),
+        speed: parseMetricValue(item.download_mbps).toFixed(1),
+        networkType: item.network_type ?? 'Unknown',
+        icon: 'location' as const,
+      }));
+      setRecentTests(tests);
+    } catch (err) {
+      setError('Unable to load home data. Please refresh.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [router]);
+
+  const gaugeProgress = Math.min(download / 200, 1);
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#EEF4FB]" style={{ paddingTop: insets.top }}>
+        <ActivityIndicator size="large" color="#3CB4A0" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#EEF4FB]" style={{ flex: 1 }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => {
+            setRefreshing(true);
+            loadData();
+          }} />
+        }
         contentContainerStyle={{
           paddingTop: insets.top + 8,
           paddingHorizontal: 20,
@@ -105,19 +164,25 @@ export function HomeScreen() {
           </View>
         </View>
 
+        {error ? (
+          <View className="mb-4 rounded-3xl bg-red-50 p-4">
+            <Text className="text-sm font-medium text-red-700">{error}</Text>
+          </View>
+        ) : null}
+
         <View className="mb-4 rounded-3xl bg-brand-card px-4 pb-4 pt-5">
           <Text className="mb-2 text-center text-xs font-semibold tracking-wider text-brand-blue">
             CURRENT DOWNLOAD
           </Text>
           <View className="items-center">
-            <DownloadGauge value={MOCK.download} progress={MOCK.gaugeProgress} />
+            <DownloadGauge value={download} progress={gaugeProgress} />
           </View>
           <View className="mt-2 flex-row items-center">
             <View className="flex-1 flex-row items-center justify-center">
               <Ionicons name="arrow-up" size={14} color="#64748B" style={{ marginRight: 4 }} />
               <View>
                 <Text className="text-xs text-brand-muted">Upload</Text>
-                <Text className="text-sm font-bold text-brand-navy">{MOCK.upload} Mbps</Text>
+                <Text className="text-sm font-bold text-brand-navy">{upload.toFixed(1)} Mbps</Text>
               </View>
             </View>
             <View className="h-8 w-px bg-slate-300" />
@@ -125,7 +190,7 @@ export function HomeScreen() {
               <Ionicons name="time-outline" size={14} color="#64748B" style={{ marginRight: 4 }} />
               <View>
                 <Text className="text-xs text-brand-muted">Ping</Text>
-                <Text className="text-sm font-bold text-brand-navy">{MOCK.ping} ms</Text>
+                <Text className="text-sm font-bold text-brand-navy">{ping} ms</Text>
               </View>
             </View>
           </View>
@@ -141,8 +206,9 @@ export function HomeScreen() {
               <Ionicons name="wifi" size={20} color="#3CB4A0" />
             </View>
             <View>
-              <Text className="text-base font-bold text-brand-navy">{MOCK.network.status}</Text>
-              <Text className="text-sm text-brand-muted">{MOCK.network.type}</Text>
+              <Text className="text-base font-bold text-brand-navy">Connected</Text>
+              <Text className="text-sm text-brand-muted">{signalType}</Text>
+              <Text className="text-sm text-brand-muted">Location: {locationLabel}</Text>
             </View>
           </View>
         </View>
@@ -153,49 +219,66 @@ export function HomeScreen() {
             <Ionicons name="information-circle-outline" size={18} color="#94A3B8" />
           </View>
           <Text className="mb-3 text-brand-navy">
-            <Text className="text-4xl font-bold">{MOCK.reliability}</Text>
+            <Text className="text-4xl font-bold">{reliability}</Text>
             <Text className="text-lg text-brand-subtle"> /100</Text>
           </Text>
           <View className="h-2 overflow-hidden rounded-full bg-slate-200">
-            <View
-              className="h-full rounded-full bg-brand-navy"
-              style={{ width: `${MOCK.reliability}%` }}
-            />
+            <View className="h-full rounded-full bg-brand-navy" style={{ width: `${reliability}%` }} />
           </View>
         </View>
 
         <View className="mb-2 flex-row items-center justify-between">
           <Text className="text-lg font-bold text-brand-navy">Recent Tests</Text>
-          <Pressable accessibilityRole="button">
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push(routes.tabs.history)}>
             <Text className="text-xs font-semibold tracking-wide text-brand-teal">VIEW ALL</Text>
           </Pressable>
         </View>
 
         <View className="rounded-3xl bg-brand-card px-3 py-1">
-          {MOCK.recentTests.map((test, index) => (
-            <View
-              key={test.id}
-              className={`flex-row items-center py-3.5 ${
-                index < MOCK.recentTests.length - 1 ? 'border-b border-white/60' : ''
-              }`}>
-              <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-light-blue">
-                <Ionicons name={RECENT_ICONS[test.icon]} size={18} color="#2E5B9E" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm font-bold text-brand-navy">{test.location}</Text>
-                <Text className="text-xs text-brand-subtle">{test.time}</Text>
-              </View>
-              <Text className="mr-2 text-sm font-semibold text-brand-teal">{test.speed} Mbps</Text>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+          {recentTests.length === 0 ? (
+            <View className="p-6">
+              <Text className="text-sm text-brand-muted">No recent tests available yet.</Text>
             </View>
-          ))}
+          ) : (
+            recentTests.map((test, index) => {
+              const isExpanded = expandedTestId === test.id;
+              const iconName = RECENT_ICONS[test.icon as keyof typeof RECENT_ICONS] ?? RECENT_ICONS.location;
+              return (
+                <Pressable
+                  key={test.id}
+                  onPress={() => setExpandedTestId(isExpanded ? null : test.id)}
+                  className={`py-3.5 ${index < recentTests.length - 1 ? 'border-b border-white/60' : ''}`}>
+                  <View className="flex-row items-center">
+                    <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-light-blue">
+                      <Ionicons name={iconName} size={18} color="#2E5B9E" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-sm font-bold text-brand-navy">{test.location}</Text>
+                      <Text className="text-xs text-brand-subtle">{test.time}</Text>
+                    </View>
+                    <Text className="mr-2 text-sm font-semibold text-brand-teal">{test.speed} Mbps</Text>
+                    <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-forward'} size={16} color="#94A3B8" />
+                  </View>
+                  {isExpanded ? (
+                    <View className="mt-2 rounded-2xl bg-white/70 px-3 py-2">
+                      <Text className="text-xs text-brand-subtle">Network: {test.networkType}</Text>
+                      <Text className="mt-1 text-xs text-brand-subtle">Recorded: {test.time}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })
+          )}
         </View>
       </ScrollView>
 
       <Pressable
         accessibilityRole="button"
         className="absolute h-14 w-14 items-center justify-center rounded-full bg-brand-navy active:opacity-90"
-        style={{ right: 20, bottom: 24 }}>
+        style={{ right: 20, bottom: 24 }}
+        onPress={() => router.push(routes.tabs.test)}>
         <Ionicons name="play" size={22} color="#ffffff" style={{ marginLeft: 3 }} />
       </Pressable>
     </View>

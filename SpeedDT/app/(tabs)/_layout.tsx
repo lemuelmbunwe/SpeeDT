@@ -1,12 +1,31 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getDeviceId } from '@/services/storage';
+import { registerBackgroundCollection } from '@/services/background-collection';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  useEffect(() => {
+    let active = true;
+
+    (async () => {
+      const deviceId = await getDeviceId();
+      if (!active || !deviceId) {
+        return;
+      }
+      await registerBackgroundCollection();
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <Tabs

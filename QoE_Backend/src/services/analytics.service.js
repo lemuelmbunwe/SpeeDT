@@ -22,7 +22,21 @@ const getLatestMetricByDevice = async (anonymous_id) => {
   return result.rows[0];
 };
 
+const getTrendByDevice = async (anonymous_id, days) => {
+  const result = await pool.query(
+    `SELECT (recorded_at::date) AS day,
+            ROUND(AVG(download_mbps)::numeric, 1) AS avg_download,
+            ROUND(AVG(signal_strength_dbm)::numeric, 1) AS avg_signal
+     FROM network_metric
+     WHERE anonymous_id = $1 AND recorded_at >= NOW() - ($2 || ' days')::INTERVAL
+     GROUP BY (recorded_at::date) ORDER BY day ASC`,
+    [anonymous_id, days]
+  );
+  return result.rows;
+};
+
 module.exports = {
   getAverageQoEByDevice,
   getLatestMetricByDevice,
+  getTrendByDevice,
 };

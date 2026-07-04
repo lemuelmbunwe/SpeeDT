@@ -43,6 +43,35 @@ const validateMetricIngestion = (req, res, next) => {
   }
 };
 
+const validateBatchMetrics = (req, res, next) => {
+  try {
+    const payload = req.body;
+    const metrics = Array.isArray(payload) ? payload : payload?.metrics;
+
+    if (!Array.isArray(metrics) || metrics.length === 0) {
+      const error = new Error("Batch payload must be an array or an object with a metrics array");
+      error.status = 400;
+      throw error;
+    }
+
+    metrics.forEach((item) => {
+      validateFields(item, ["anonymous_id", "network_type"]);
+      const anonymousId = sanitizeUUID(item.anonymous_id);
+      if (!isValidUUID(anonymousId)) {
+        const error = new Error("anonymous_id must be a valid UUID");
+        error.status = 400;
+        throw error;
+      }
+      item.anonymous_id = anonymousId;
+    });
+
+    req.body = metrics;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
 const validateLocationTracking = (req, res, next) => {
   try {
     validateFields(req.body, ["anonymous_id", "latitude", "longitude"]);
@@ -112,6 +141,7 @@ const validateDeviceIdParam = (req, res, next) => {
 module.exports = {
   validateDeviceRegistration,
   validateMetricIngestion,
+  validateBatchMetrics,
   validateLocationTracking,
   validateFeedbackSubmission,
   validateDeviceIdParam,

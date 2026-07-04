@@ -1,8 +1,14 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, ActivityIndicator, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
+import { getDeviceId, clearDeviceId, clearPendingMetrics } from '@/services/storage';
+import { getDevice, updateDevicePreferences, deleteDeviceData } from '@/services/api';
+import { registerBackgroundCollection, unregisterBackgroundCollection } from '@/services/background-collection';
+import { routes } from '@/navigation/routes';
 
 type SettingsToggleRowProps = {
   icon: ReactNode;
@@ -95,21 +101,108 @@ function SettingsLinkRow({
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [dataCollection, setDataCollection] = useState(true);
   const [wifiOnlyUploads, setWifiOnlyUploads] = useState(true);
   const [notifications, setNotifications] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleViewPolicy = () => {
-    Alert.alert('Privacy Policy', 'Privacy policy content will be available in a future update.');
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const deviceId = await getDeviceId();
+        if (!deviceId) {
+          router.replace(routes.consent);
+          return;
+        }
+
+        const response = await getDevice(deviceId);
+        const device = response.data;
+        setDataCollection(!!device.data_collection_enabled);
+        setWifiOnlyUploads(!!device.wifi_only_uploads);
+        setNotifications(!!device.notifications_enabled);
+      } catch (err) {
+        setError('Unable to load settings.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, [router]);
+
+  const updatePreferences = async (field: 'data_collection_enabled' | 'wifi_only_uploads' | 'notifications_enabled', value: boolean) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const deviceId = await getDeviceId();
+      if (!deviceId) {
+        throw new Error('Device not found');
+      }
+
+      const payload = {
+        data_collection_enabled: field === 'data_collection_enabled' ? value : dataCollection,
+        wifi_only_uploads: field === 'wifi_only_uploads' ? value : wifiOnlyUploads,
+        notifications_enabled: field === 'notifications_enabled' ? value : notifications,
+      };
+
+      await updateDevicePreferences(deviceId, payload);
+
+      if (field === 'data_collection_enabled') {
+        setDataCollection(value);
+        if (value) {
+          await registerBackgroundCollection();
+        } else {
+          await unregisterBackgroundCollection();
+        }
+      }
+
+      if (field === 'wifi_only_uploads') setWifiOnlyUploads(value);
+      if (field === 'notifications_enabled') setNotifications(value);
+    } catch (err) {
+      setError('Unable to update preferences.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDeleteData = () => {
     Alert.alert(
       'Delete All My Data',
-      'This action would remove all locally stored data. No data has been deleted.',
-      [{ text: 'OK' }],
+      'This action will delete your device metrics, location, and feedback data. Your device registration will remain.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const deviceId = await getDeviceId();
+              if (!deviceId) {
+                throw new Error('Device not found');
+              }
+              await deleteDeviceData(deviceId);
+              await clearPendingMetrics();
+              await clearDeviceId();
+              router.replace(routes.consent);
+            } catch (err) {
+              Alert.alert('Error', 'Unable to delete data. Please try again.');
+            }
+          },
+        },
+      ],
     );
   };
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#EEF4FB]" style={{ paddingTop: insets.top }}>
+        <ActivityIndicator size="large" color="#3CB4A0" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#EEF4FB]" style={{ flex: 1 }}>
@@ -133,20 +226,26 @@ export function SettingsScreen() {
           Manage your application preferences and data controls.
         </Text>
 
+        {error ? (
+          <View className="mb-4 rounded-3xl bg-red-50 p-4">
+            <Text className="text-sm font-medium text-red-700">{error}</Text>
+          </View>
+        ) : null}
+
         <SettingsSection title="DATA & CONNECTIVITY">
           <SettingsToggleRow
             icon={<MaterialCommunityIcons name="database-outline" size={18} color="#1A2E4A" />}
             title="Data Collection Controls"
             subtitle="Allow background sensing"
             value={dataCollection}
-            onValueChange={setDataCollection}
+            onValueChange={(value) => updatePreferences('data_collection_enabled', value)}
           />
           <SettingsToggleRow
             icon={<Ionicons name="wifi" size={18} color="#1A2E4A" />}
             title="Wi-Fi Only Uploads"
             subtitle="Save cellular data"
             value={wifiOnlyUploads}
-            onValueChange={setWifiOnlyUploads}
+            onValueChange={(value) => updatePreferences('wifi_only_uploads', value)}
             isLast
           />
         </SettingsSection>
@@ -157,7 +256,7 @@ export function SettingsScreen() {
             title="Notifications"
             subtitle="Network anomaly alerts"
             value={notifications}
-            onValueChange={setNotifications}
+            onValueChange={(value) => updatePreferences('notifications_enabled', value)}
             isLast
           />
         </SettingsSection>
@@ -166,7 +265,7 @@ export function SettingsScreen() {
           <SettingsLinkRow
             icon={<Ionicons name="shield-checkmark-outline" size={18} color="#1A2E4A" />}
             title="View Policy"
-            onPress={handleViewPolicy}
+            onPress={() => Alert.alert('Privacy Policy', 'Privacy policy content will be available in a future update.')}
           />
           <SettingsLinkRow
             icon={<Ionicons name="trash-outline" size={18} color="#EF4444" />}
@@ -177,6 +276,12 @@ export function SettingsScreen() {
             isLast
           />
         </SettingsSection>
+
+        {saving ? (
+          <View className="mb-4 items-center justify-center">
+            <ActivityIndicator size="small" color="#3CB4A0" />
+          </View>
+        ) : null}
 
         <View className="mt-2 items-center py-6">
           <Ionicons name="speedometer-outline" size={28} color="#94A3B8" />

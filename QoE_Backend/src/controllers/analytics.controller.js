@@ -33,8 +33,19 @@ const getLatestMetricPerDevice = async (req, res, next) => {
   }
 };
 
+const getTrendPerDevice = async (req, res, next) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 7;
+    const trend = await analyticsService.getTrendByDevice(req.params.deviceId, days);
+    res.json({ success: true, data: trend });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAverageSpeedPerDevice,
   getAverageQoEPerDevice,
   getLatestMetricPerDevice,
+  getTrendPerDevice,
 };

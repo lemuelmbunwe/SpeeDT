@@ -42,6 +42,35 @@ const ingestMetric = async ({
   return result.rows[0];
 };
 
+const normalizeBatchPayload = (payload) => {
+  if (Array.isArray(payload)) {
+    if (payload.length === 0) {
+      throw new Error("Batch payload must include at least one metric");
+    }
+    return payload;
+  }
+
+  if (payload && Array.isArray(payload.metrics)) {
+    if (payload.metrics.length === 0) {
+      throw new Error("Batch payload must include at least one metric");
+    }
+    return payload.metrics;
+  }
+
+  throw new Error("Batch payload must be an array or an object with a metrics array");
+};
+
+const ingestMetricsBatch = async (payload) => {
+  const metrics = normalizeBatchPayload(payload);
+  const insertedMetrics = [];
+
+  for (const metric of metrics) {
+    insertedMetrics.push(await ingestMetric(metric));
+  }
+
+  return insertedMetrics;
+};
+
 const getLatestMetricByDevice = async (anonymous_id) => {
   const result = await pool.query(
     `SELECT * FROM network_metric WHERE anonymous_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
@@ -62,8 +91,28 @@ const getAverageSpeedByDevice = async (anonymous_id) => {
   return result.rows[0];
 };
 
+const getMetricHistory = async (anonymous_id, limit, offset) => {
+  const countResult = await pool.query(
+    `SELECT COUNT(*) FROM network_metric WHERE anonymous_id = $1 AND download_mbps IS NOT NULL`,
+    [anonymous_id]
+  );
+
+  const dataResult = await pool.query(
+    `SELECT * FROM network_metric WHERE anonymous_id = $1 AND download_mbps IS NOT NULL ORDER BY recorded_at DESC LIMIT $2 OFFSET $3`,
+    [anonymous_id, limit, offset]
+  );
+
+  return {
+    rows: dataResult.rows,
+    total: parseInt(countResult.rows[0].count, 10),
+  };
+};
+
 module.exports = {
   ingestMetric,
+  ingestMetricsBatch,
+  normalizeBatchPayload,
   getLatestMetricByDevice,
   getAverageSpeedByDevice,
+  getMetricHistory,
 };
