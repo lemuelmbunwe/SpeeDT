@@ -1,0 +1,183 @@
+{
+  "export_metadata": {
+    "generated_at": "2026-07-06T02:00:00Z",
+    "operator": "MTN Cameroon",
+    "device_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "total_metrics": 142,
+    "total_locations": 12,
+    "total_feedback": 7,
+    "date_range": {
+      "from": "2026-06-29T10:00:00Z",
+      "to": "2026-07-06T01:55:00Z"
+    }
+  },
+  "device_info": {
+    "device_model": "iPhone 15 Pro",
+    "os": "iOS 18.2",
+    "app_version": "1.0.0",
+    "consent_given": true,
+    "data_collection_enabled": true,
+    "created_at": "2026-06-01T08:00:00Z"
+  },
+  "network_metrics": [
+    {
+      "recorded_at": "2026-07-06T01:55:00Z",
+      "network_type": "5G Ultra Wideband",
+      "operator": "MTN Cameroon",
+      "signal_strength_dbm": -65,
+      "download_mbps": 142.00,
+      "upload_mbps": 48.20,
+      "latency_ms": 12.00,
+      "jitter_ms": 3.50,
+      "packet_loss_pct": 0.20
+    },
+    {
+      "recorded_at": "2026-07-06T01:50:00Z",
+      "network_type": "5G Ultra Wideband",
+      "operator": "MTN Cameroon",
+      "signal_strength_dbm": -63,
+      "download_mbps": null,
+      "upload_mbps": null,
+      "latency_ms": null,
+      "jitter_ms": null,
+      "packet_loss_pct": null
+    },
+    {
+      "recorded_at": "2026-07-06T01:45:00Z",
+      "network_type": "5G Ultra Wideband",
+      "operator": "MTN Cameroon",
+      "signal_strength_dbm": -68,
+      "download_mbps": null,
+      "upload_mbps": null,
+      "latency_ms": null,
+      "jitter_ms": null,
+      "packet_loss_pct": null
+    },
+    {
+      "recorded_at": "2026-07-05T14:30:00Z",
+      "network_type": "5G Ultra Wideband",
+      "operator": "MTN Cameroon",
+      "signal_strength_dbm": -67,
+      "download_mbps": 138.00,
+      "upload_mbps": 45.10,
+      "latency_ms": 13.00,
+      "jitter_ms": 3.80,
+      "packet_loss_pct": 0.10
+    },
+    {
+      "recorded_at": "2026-07-04T09:15:00Z",
+      "network_type": "4G LTE",
+      "operator": "MTN Cameroon",
+      "signal_strength_dbm": -82,
+      "download_mbps": 42.50,
+      "upload_mbps": 15.80,
+      "latency_ms": 28.00,
+      "jitter_ms": 5.50,
+      "packet_loss_pct": 0.90
+    },
+    {
+      "recorded_at": "2026-07-03T18:00:00Z",
+      "network_type": "No Service",
+      "operator": null,
+      "signal_strength_dbm": -120,
+      "download_mbps": null,
+      "upload_mbps": null,
+      "latency_ms": null,
+      "jitter_ms": null,
+      "packet_loss_pct": null
+    },
+    {
+      "recorded_at": "2026-06-30T11:20:00Z",
+      "network_type": "3G",
+      "operator": "MTN Cameroon",
+      "signal_strength_dbm": -95,
+      "download_mbps": 18.50,
+      "upload_mbps": 6.80,
+      "latency_ms": 55.00,
+      "jitter_ms": 9.00,
+      "packet_loss_pct": 2.50
+    }
+  ],
+  "locations": [
+    {
+      "recorded_at": "2026-07-06T01:55:00Z",
+      "latitude": 4.15,
+      "longitude": 9.2333,
+      "location_name": "Downtown Core"
+    },
+    {
+      "recorded_at": "2026-07-05T14:30:00Z",
+      "latitude": 4.15,
+      "longitude": 9.2333,
+      "location_name": "Downtown Core"
+    },
+    {
+      "recorded_at": "2026-07-04T09:15:00Z",
+      "latitude": 4.12,
+      "longitude": 9.2,
+      "location_name": "Clerks Quarters"
+    },
+    {
+      "recorded_at": "2026-07-03T18:00:00Z",
+      "latitude": 4.17,
+      "longitude": 9.26,
+      "location_name": "Buea Highway"
+    }
+  ],
+  "feedback": [
+    {
+      "recorded_at": "2026-07-06T01:56:00Z",
+      "overall_rating": 5,
+      "speed_rating": 5,
+      "delay_rating": 4,
+      "reliability_rating": 5,
+      "comment": "Excellent 5G speeds in downtown area!"
+    },
+    {
+      "recorded_at": "2026-07-05T14:31:00Z",
+      "overall_rating": 4,
+      "speed_rating": 4,
+      "delay_rating": 4,
+      "reliability_rating": 4,
+      "comment": "Good performance, consistent connection."
+    },
+    {
+      "recorded_at": "2026-07-04T09:16:00Z",
+      "overall_rating": 3,
+      "speed_rating": 3,
+      "delay_rating": 3,
+      "reliability_rating": 4,
+      "comment": "Decent but slower during peak hours."
+    },
+    {
+      "recorded_at": "2026-07-03T18:01:00Z",
+      "overall_rating": 2,
+      "speed_rating": 2,
+      "delay_rating": 2,
+      "reliability_rating": 3,
+      "comment": "Very poor signal in Buea Highway area. No service detected."
+    },
+    {
+      "recorded_at": "2026-06-30T11:21:00Z",
+      "overall_rating": 3,
+      "speed_rating": 3,
+      "delay_rating": 3,
+      "reliability_rating": 3,
+      "comment": "3G is very slow, but at least there's coverage."
+    }
+  ],
+  "summary": {
+    "avg_download_mbps": 85.25,
+    "avg_upload_mbps": 29.0,
+    "avg_latency_ms": 27.0,
+    "total_speed_tests": 4,
+    "total_passive_snapshots": 3,
+    "operators_detected": ["MTN Cameroon"],
+    "coverage_locations": ["Downtown Core", "Clerks Quarters", "Buea Highway"],
+    "network_types_encountered": ["5G Ultra Wideband", "4G LTE", "3G", "No Service"],
+    "avg_feedback_overall": 3.4,
+    "avg_feedback_speed": 3.4,
+    "avg_feedback_delay": 3.2,
+    "avg_feedback_reliability": 3.8
+  }
+}

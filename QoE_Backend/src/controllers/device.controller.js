@@ -23,7 +23,32 @@ const getDevice = async (req, res, next) => {
   }
 };
 
+const updateDevicePreferences = async (req, res, next) => {
+  try {
+    const device = await deviceService.updateDevicePreferences(req.params.deviceId, req.body);
+    if (!device) {
+      const error = new Error("Device not found");
+      error.status = 404;
+      throw error;
+    }
+    res.json({ success: true, data: device });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const deleteDeviceData = async (req, res, next) => {
+  try {
+    await deviceService.deleteDeviceData(req.params.deviceId);
+    res.json({ success: true, message: "All device data deleted" });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   registerDevice,
   getDevice,
+  updateDevicePreferences,
+  deleteDeviceData,
 };

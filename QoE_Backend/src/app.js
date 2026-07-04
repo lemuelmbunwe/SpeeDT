@@ -6,6 +6,7 @@ const locationRoutes = require("./routes/location.routes");
 const feedbackRoutes = require("./routes/feedback.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const exportRoutes = require("./routes/export.routes");
+const testFilesRoutes = require("./routes/test-files.routes");
 const { initWeeklyExportScheduler } = require("./services/scheduler.service");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -25,6 +26,7 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/export", exportRoutes);
+app.use("/api/test-files", testFilesRoutes);
 
 // Initialize weekly export scheduler
 if (process.env.NODE_ENV !== "test") {

@@ -1,5 +1,5 @@
 ### Register a new device
-POST http://localhost:5050/api/devices
+POST http://localhost:5000/api/devices
 Content-Type: application/json
 
 {
@@ -26,7 +26,7 @@ Content-Type: application/json
 }
 
 ### Track a location
-POST http://localhost:5050/api/locations
+POST http://localhost:5000/api/locations
 Content-Type: application/json
 
 {
@@ -77,7 +77,7 @@ GET http://localhost:5050/api/export/device/1d629c65-4f30-4680-b983-34afeaf40d64
 Authorization: Bearer mtn_api_key_demo_abc123
 
 ### 4. Export ALL devices for MTN as JSON
-GET http://localhost:5050/api/export/all?format=json
+GET http://localhost:5000/api/export/all?format=json
 Authorization: Bearer mtn_api_key_demo_abc123
 
 ### 5. Export ALL devices for MTN as CSV (bulk download)

@@ -1,13 +1,18 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { cssInterop } from 'nativewind';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ConsentPermissionItem } from '@/components/consent/consent-permission-item';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { routes } from '@/navigation/routes';
+import { getAppVersion, getDeviceModel, getOsVersion } from '@/services/device-info';
+import { registerDevice } from '@/services/api';
+import { saveDeviceId } from '@/services/storage';
+import { registerBackgroundCollection } from '@/services/background-collection';
 
 cssInterop(LinearGradient, { className: 'style' });
 
@@ -31,6 +36,37 @@ const PERMISSION_ITEMS = [
 
 export function ConsentScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAgree = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const device_model = await getDeviceModel();
+      const os = await getOsVersion();
+      const app_version = await getAppVersion();
+
+      const response = await registerDevice({
+        device_model,
+        os,
+        app_version,
+        consent_given: true,
+      });
+
+      await saveDeviceId(response.data.anonymous_id);
+      await registerBackgroundCollection();
+      router.replace(routes.tabs.home);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to register device. Please try again.';
+      console.error('Device registration failed', message);
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <LinearGradient
@@ -82,7 +118,15 @@ export function ConsentScreen() {
       <View
         className="border-t border-slate-100 bg-white/80 px-6 pt-4"
         style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-        <PrimaryButton label="I AGREE & CONTINUE" onPress={() => router.replace(routes.tabs.home)} />
+        <PrimaryButton label="I AGREE & CONTINUE" onPress={handleAgree} disabled={loading} />
+        {loading ? (
+          <View className="mt-3 items-center">
+            <ActivityIndicator size="small" color="#3CB4A0" />
+          </View>
+        ) : null}
+        {error ? (
+          <Text className="mt-3 text-center text-sm text-red-500">{error}</Text>
+        ) : null}
         <Pressable accessibilityRole="link" className="mt-4 items-center active:opacity-70">
           <Text className="text-sm font-medium text-brand-blue underline">Read our Privacy Policy</Text>
         </Pressable>

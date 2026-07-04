@@ -358,31 +358,66 @@ const generateWeeklyExportFiles = async () => {
     let totalMetrics = 0;
     let totalLocations = 0;
     let totalFeedback = 0;
+    const allMetrics = [];
+    const allLocations = [];
+    const allFeedback = [];
 
     for (const deviceId of deviceIds) {
       const data = await getDeviceExportData(deviceId, operatorName);
 
       if (data.metrics.length > 0 || data.locations.length > 0 || data.feedback.length > 0) {
-        // Save JSON per device
         const jsonExport = buildJsonExport(deviceId, operatorName, data);
         const jsonPath = path.join(operatorDir, `${deviceId}.json`);
         fs.writeFileSync(jsonPath, JSON.stringify(jsonExport, null, 2));
         totalMetrics += data.metrics.length;
         totalLocations += data.locations.length;
         totalFeedback += data.feedback.length;
+        allMetrics.push(...data.metrics);
+        allLocations.push(...data.locations);
+        allFeedback.push(...data.feedback);
       }
     }
 
-    // Save combined CSV per operator
-    const allOperatorData = {
-      metrics_csv: toCsv(
-        deviceIds.flatMap((id) => {
-          // We re-fetch here to keep it simple — in production use a single query
-          return [];
-        }),
-        ["metric_id"]
-      ),
-    };
+    const combinedCsvPath = path.join(operatorDir, `${operatorName.replace(/\s+/g, "_")}_combined.csv`);
+    const combinedCsv = [
+      "=== NETWORK METRICS ===",
+      toCsv(allMetrics, [
+        "metric_id",
+        "anonymous_id",
+        "network_type",
+        "operator_name",
+        "signal_strength_dbm",
+        "download_mbps",
+        "upload_mbps",
+        "latency_ms",
+        "jitter_ms",
+        "packet_loss_pct",
+        "recorded_at",
+      ]),
+      "=== LOCATIONS ===",
+      toCsv(allLocations, [
+        "location_id",
+        "anonymous_id",
+        "latitude",
+        "longitude",
+        "location_name",
+        "recorded_at",
+      ]),
+      "=== FEEDBACK ===",
+      toCsv(allFeedback, [
+        "feedback_id",
+        "anonymous_id",
+        "metric_id",
+        "overall_rating",
+        "speed_rating",
+        "delay_rating",
+        "reliability_rating",
+        "comment",
+        "recorded_at",
+      ]),
+    ].join("\n");
+
+    fs.writeFileSync(combinedCsvPath, combinedCsv);
 
     summary.push({
       operator: operatorName,
