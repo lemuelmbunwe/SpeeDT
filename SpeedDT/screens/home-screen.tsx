@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getDeviceId } from '@/services/storage';
 import { getLatestMetric, getAverageSpeed, getHistory, getLocationHistory } from '@/services/api';
@@ -127,9 +128,11 @@ export function HomeScreen() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, [router]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const gaugeProgress = Math.min(download / 200, 1);
 

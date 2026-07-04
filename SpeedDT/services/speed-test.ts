@@ -92,13 +92,16 @@ async function measureDownloadSpeed(): Promise<number> {
   const end = Date.now();
 
   const bytes = blob.size;
-  const seconds = Math.max((end - start) / 1000, 0.001);
+  // Enforce minimum 1 second to prevent absurd speeds on localhost
+  const elapsed = (end - start) / 1000;
+  const seconds = Math.max(elapsed, 1.0);
   return (bytes * 8) / seconds / 1_000_000;
 }
 
 async function measureUploadSpeed(): Promise<number> {
   const uploadUrl = `${TEST_BASE_URL}/upload`;
-  const payload = new Uint8Array(1_000_000);
+  // Use larger payload (5MB) for more accurate measurement
+  const payload = new Uint8Array(5_000_000);
   const start = Date.now();
 
   const response = await fetch(uploadUrl, {
@@ -114,6 +117,8 @@ async function measureUploadSpeed(): Promise<number> {
   }
 
   const end = Date.now();
-  const seconds = Math.max((end - start) / 1000, 0.001);
+  // Enforce minimum 1 second to prevent absurd speeds on localhost
+  const elapsed = (end - start) / 1000;
+  const seconds = Math.max(elapsed, 1.0);
   return (payload.byteLength * 8) / seconds / 1_000_000;
 }

@@ -1,8 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Line, Path } from 'react-native-svg';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getDeviceId } from '@/services/storage';
 import { getHistory, getTrend, getAverageSpeed, getLocationHistory } from '@/services/api';
@@ -79,48 +80,53 @@ export function HistoryScreen() {
   const [records, setRecords] = useState<any[]>([]);
   const [trend, setTrend] = useState<Array<{ day: string; avg_download: number; avg_signal: number }>>([]);
   const [locationLabel, setLocationLabel] = useState<string>('Unknown Location');
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const deviceId = await getDeviceId();
-        if (!deviceId) {
-          return;
+  useFocusEffect(
+    useCallback(() => {
+      const loadHistory = async () => {
+        try {
+          const deviceId = await getDeviceId();
+          if (!deviceId) {
+            return;
+          }
+
+          const avgResponse = await getAverageSpeed(deviceId);
+          const trendResponse = await getTrend(deviceId, 7);
+          const historyResponse = await getHistory(deviceId, 1, 20);
+          const locationResponse = await getLocationHistory(deviceId);
+          const latestLocation = (locationResponse.data || []).find((item: any) => item.location_name)?.location_name;
+
+          setAvgDownload(parseMetricValue(avgResponse.data.average_download_mbps) ?? 0);
+          setPeakRecorded(Math.ceil(parseMetricValue(avgResponse.data.average_download_mbps) ?? 0));
+          setTrend(trendResponse.data ?? []);
+          setLocationLabel(formatLocationLabel(latestLocation));
+
+          setRecords(
+            (historyResponse.data || []).map((item: any) => {
+              const speedValue = parseMetricValue(item.download_mbps);
+              return {
+                id: String(item.metric_id),
+                location: formatLocationLabel(item.operator_name || latestLocation),
+                meta: `${new Date(item.recorded_at).toLocaleString()} • ${item.network_type || 'Unknown'}`,
+                speed: speedValue !== null ? speedValue.toFixed(1) : '--',
+                noService: speedValue === null,
+                recordedAt: new Date(item.recorded_at).toLocaleString(),
+                networkType: item.network_type || 'Unknown',
+              };
+            }),
+          );
+        } catch (err) {
+          // ignore for now
+        } finally {
+          setLoading(false);
         }
+      };
 
-        const avgResponse = await getAverageSpeed(deviceId);
-        const trendResponse = await getTrend(deviceId, 7);
-        const historyResponse = await getHistory(deviceId, 1, 20);
-        const locationResponse = await getLocationHistory(deviceId);
-        const latestLocation = (locationResponse.data || []).find((item: any) => item.location_name)?.location_name;
-
-        setAvgDownload(parseMetricValue(avgResponse.data.average_download_mbps) ?? 0);
-        setPeakRecorded(Math.ceil(parseMetricValue(avgResponse.data.average_download_mbps) ?? 0));
-        setTrend(trendResponse.data ?? []);
-        setLocationLabel(formatLocationLabel(latestLocation));
-
-        setRecords(
-          (historyResponse.data || []).map((item: any) => {
-            const speedValue = parseMetricValue(item.download_mbps);
-            return {
-              id: String(item.metric_id),
-              location: formatLocationLabel(item.operator_name || latestLocation),
-              meta: `${new Date(item.recorded_at).toLocaleString()} • ${item.network_type || 'Unknown'}`,
-              speed: speedValue !== null ? speedValue.toFixed(1) : '--',
-              noService: speedValue === null,
-            };
-          }),
-        );
-      } catch (err) {
-        // ignore for now
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadHistory();
-  }, []);
+      loadHistory();
+    }, [])
+  );
 
   if (loading) {
     return (
@@ -192,26 +198,42 @@ export function HistoryScreen() {
               <Text className="text-sm text-brand-muted">No history records available yet.</Text>
             </View>
           ) : (
-            records.map((record) => (
-              <View key={record.id} className="flex-row items-center rounded-3xl bg-brand-card px-3 py-3.5">
-                <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-light-blue">
-                  <Ionicons name="location" size={18} color="#1A2E4A" />
-                </View>
+            records.map((record) => {
+              const isExpanded = expandedRecordId === record.id;
+              return (
+                <Pressable
+                  key={record.id}
+                  onPress={() => setExpandedRecordId(isExpanded ? null : record.id)}
+                  className="active:opacity-80">
+                  <View className="rounded-3xl bg-brand-card px-3 py-3.5">
+                    <View className="flex-row items-center">
+                      <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-brand-light-blue">
+                        <Ionicons name="location" size={18} color="#1A2E4A" />
+                      </View>
 
-                <View className="flex-1 pr-2">
-                  <Text className="text-sm font-bold text-brand-navy">{record.location}</Text>
-                  <Text className="text-xs text-brand-subtle">{record.meta}</Text>
-                </View>
+                      <View className="flex-1 pr-2">
+                        <Text className="text-sm font-bold text-brand-navy">{record.location}</Text>
+                        <Text className="text-xs text-brand-subtle">{record.meta}</Text>
+                      </View>
 
-                <View className="mr-1 items-end">
-                  <Text className={`text-sm font-bold ${record.noService ? 'text-brand-subtle' : 'text-brand-teal'}`}>
-                    {record.speed}
-                  </Text>
-                  <Text className="text-[10px] font-semibold tracking-wide text-brand-subtle">MBPS</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-              </View>
-            ))
+                      <View className="mr-1 items-end">
+                        <Text className={`text-sm font-bold ${record.noService ? 'text-brand-subtle' : 'text-brand-teal'}`}>
+                          {record.speed}
+                        </Text>
+                        <Text className="text-[10px] font-semibold tracking-wide text-brand-subtle">MBPS</Text>
+                      </View>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-forward'} size={16} color="#94A3B8" />
+                    </View>
+                    {isExpanded ? (
+                      <View className="mt-2 rounded-2xl bg-white/70 px-3 py-2">
+                        <Text className="text-xs text-brand-subtle">Network: {record.networkType}</Text>
+                        <Text className="mt-1 text-xs text-brand-subtle">Recorded: {record.recordedAt}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })
           )}
         </View>
 

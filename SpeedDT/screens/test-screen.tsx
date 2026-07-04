@@ -8,6 +8,7 @@ import { getDeviceId } from '@/services/storage';
 import { getNetworkType, getOperatorName, getSignalStrength } from '@/services/device-info';
 import { runFullSpeedTest } from '@/services/speed-test';
 import { submitMetric } from '@/services/api';
+import { FeedbackModal } from '@/components/feedback-modal';
 
 type TestStatus = 'idle' | 'testing' | 'complete';
 
@@ -75,6 +76,7 @@ export function TestScreen() {
   const [signalStrength, setSignalStrength] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     const loadConnectionInfo = async () => {
@@ -132,6 +134,8 @@ export function TestScreen() {
       setOperatorName(operator);
       setSignalStrength(signal);
       setStatus('complete');
+      // Show feedback modal after a short delay
+      setTimeout(() => setShowFeedback(true), 800);
     } catch (err) {
       setError('Speed test failed. Please try again.');
       setStatus('idle');
@@ -241,6 +245,11 @@ export function TestScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <FeedbackModal
+        visible={showFeedback}
+        onClose={() => setShowFeedback(false)}
+      />
     </View>
   );
 }
